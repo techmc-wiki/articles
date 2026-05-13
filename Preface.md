@@ -43,10 +43,10 @@ Minecraft © Mojang AB / Microsoft Corporation. All Rights Reserved.
 
 GTMC Team:
 
-- 写手 / ABxl_lly, BFladderbean, Molforte, Ryan100c, tanh_Heng, Twisuki, xhbsh , yuhan2680
-- 开发 / [BFladderbean](https://bfladderbean.me/), [4rcadia](https://github.com/Arcadi4)
-- 协作 / Petris, void, XJH_Jorhai
-- 鸣谢 / Fallen_Breath, 五羊飞 kaniol
+- 写手 / ABxl_lly, [@BFladderbean], [@Molforte], [@Ryan100c], [@tanh_Heng], [@Twisuki], [@xhbsh], [@yuhan2680]
+- 开发 / [@BFladderbean], [@4rcadia]
+- 协作 / Petris, [@void], XJH_Jorhai
+- 鸣谢 / [@Fallen_Breath], 五羊飞 kaniol
 
 **_本文档并非Minecraft官方文档，与Mojang和微软亦无从属关系。_**
 
