@@ -162,6 +162,37 @@ Want to hide an easter egg or the answer to a puzzle without spoiling it immedia
 The answer to the puzzle is <hidden>42</hidden>.
 ```
 
+### People Mentions
+
+Use `[@name]` to mention a person in your article. The name is matched directly against keys in `data/people.json` (trimmed, exact match only — no fuzzy matching or aliases).
+
+```markdown
+Hello [@BFladderbean]!
+```
+
+This renders as an interactive annotation showing the person's profile image, name, description, and optional contact/social links.
+
+**Supported name characters:** CJK characters, spaces, hyphens, underscores, periods, and mixed case are all valid inside the brackets.
+
+**Not supported:**
+
+- Bare `@name` without brackets is not transformed.
+- Use a backslash to escape: `\[@name]` renders as literal `[@name]`.
+
+**Fallback behavior:** If the key does not exist in `data/people.json`, a placeholder is rendered with a question-mark avatar and no additional details.
+
+**Popup fields** (from `data/people.json`):
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Display name |
+| `profile` | No | Avatar / profile image URL |
+| `description` | No | Short bio |
+| `email` | No | Contact email |
+| `social` | No | Object with links |
+
+**Supported social keys:** `github`, `bilibili`, `twitter`, `website`, `custom` (array of `{ label, url }`).
+
 ## Git Standards
 
 We do not strictly require contributors to possess Git knowledge. If you use our [online editor](https://beta.techmc.wiki), Git and Pull Requests are handled entirely as the backend, meaning you won't need to manually deal with commits.
