@@ -1,0 +1,122 @@
+name: Rebuild the PDF books
+
+# The books are cut from this repository, so this is where the decision to cut
+# one belongs. A push to `main` that actually changed book content asks the
+# website repository to re-render and re-publish; anything else is left alone.
+#
+# The website workflow also refuses to rebuild when it has already published
+# this exact revision, so a duplicate request costs nothing.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: publish-pdf
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the pushed revision
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.after }}
+
+      - name: Decide whether this push changes the books
+        id: inspect
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+
+          zero=0000000000000000000000000000000000000000
+
+          # A push that creates or deletes the branch carries no usable range.
+          if [[ "$BEFORE" == "$zero" || "$AFTER" == "$zero" ]]; then
+            echo "Push has no usable before/after; nothing to compare."
+            echo "should-dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Re-pushing the same tip: the tree cannot have moved.
+          if [[ "$BEFORE" == "$AFTER" ]]; then
+            echo "Push did not move the branch tip; this is a no-op."
+            echo "should-dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$BEFORE"
+          fi
+
+          # A rebase, force-push, or branch rewrite is not the incremental push
+          # this trigger is written for. The tree is still compared below, but
+          # the range is not trusted to be meaningful.
+          if ! git merge-base --is-ancestor "$BEFORE" "$AFTER"; then
+            echo "warning: push rewrote history; comparing trees instead of the commit range."
+          fi
+
+          # Repository metadata never reaches the books: the manifest ignores
+          # paths with a `_` segment, and the rest of these are the repository's
+          # own paperwork. A push touching only these leaves the edition intact.
+          changed="$(
+            git diff --name-only "$BEFORE" "$AFTER" -- . \
+              ':(exclude).github/**' \
+              ':(exclude).omo/**' \
+              ':(exclude)_Drafts/**' \
+              ':(exclude)README.md' \
+              ':(exclude)README.zh.md' \
+              ':(exclude)CONTRIBUTING.md' \
+              ':(exclude)CONTRIBUTING_CN.md' \
+              ':(exclude)CODE_OF_CONDUCT.en.md' \
+              ':(exclude)CODE_OF_CONDUCT.zh.md' \
+              ':(exclude)REVIEWERS.md' \
+              ':(exclude)REVIEWERS_CN.zh.md' \
+              ':(exclude)AI_POLICY.zh.md' \
+              ':(exclude)ROADMAP.md' \
+              ':(exclude)LICENSE' \
+              ':(exclude).gitignore' \
+              ':(exclude).markdownlint.jsonc' \
+              ':(exclude).oxfmtrc.json'
+          )"
+
+          if [[ -z "$changed" ]]; then
+            echo "No book content changed; this is a no-op."
+            echo "should-dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Book content changed in:"
+          echo "$changed" | sed 's/^/  /' | head -20
+          remaining="$(printf '%s\n' "$changed" | wc -l | tr -d ' ')"
+          if [[ "$remaining" -gt 20 ]]; then
+            echo "  … and $((remaining - 20)) more"
+          fi
+          echo "should-dispatch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Ask the website to re-render the books
+        if: steps.inspect.outputs.should-dispatch == 'true'
+        env:
+          # PAT with Actions read/write on techmc-wiki/gtmc.
+          GH_TOKEN: ${{ secrets.GTMC_REBUILD_TOKEN }}
+          ARTICLES_SHA: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "GTMC_REBUILD_TOKEN is not set; cannot reach techmc-wiki/gtmc." >&2
+            exit 1
+          fi
+
+          gh api --method POST repos/techmc-wiki/gtmc/dispatches \
+            --field event_type=articles-rebuild \
+            --field "client_payload[articles_sha]=${ARTICLES_SHA}"
+          echo "Requested a rebuild of techmc-wiki/gtmc at ${ARTICLES_SHA}."
